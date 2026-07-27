@@ -1,0 +1,178 @@
+import unittest
+
+import support
+from claude_usage import config, model, render
+
+
+def sections(text):
+    """Split SwiftBar output into [title_block, *menu_blocks]."""
+    return [block.splitlines() for block in text.split("\n---\n")]
+
+
+class RenderOkTest(unittest.TestCase):
+    def setUp(self):
+        self.addCleanup(support.pin_timezone())
+        self.cfg = config.load_config(env={})
+        self.snapshot = model.normalize(support.load_fixture(), self.cfg,
+                                        support.NOW)
+        self.text = render.render(self.snapshot, "Max 5x (team)",
+                                  render.STATE_OK, support.NOW, self.cfg)
+        self.lines = self.text.splitlines()
+
+    def test_menu_bar_title_matches_agreed_format(self):
+        self.assertEqual(self.lines[0], "◱ 61% · 25% · ⚠️")
+
+    def test_exactly_one_line_before_first_separator(self):
+        # More than one line makes SwiftBar cycle the title.
+        self.assertEqual(len(sections(self.text)[0]), 1)
+
+    def test_plan_header_present(self):
+        self.assertIn("Claude usage — Max 5x (team)", self.text)
+
+    def test_limit_rows_are_column_aligned(self):
+        self.assertIn(
+            "Session (5h)    61%  ▓▓▓▓▓▓░░░░  resets 14:09 (in 3h 0m)",
+            self.text)
+        self.assertIn(
+            "Weekly (all)    25%  ▓▓░░░░░░░░  resets Sun 08-02 01:59 (in 5d 14h)",
+            self.text)
+
+    def test_row_without_reset_time_has_no_trailing_whitespace(self):
+        row = next(line for line in self.lines if "Weekly (Fable)" in line)
+        body = row.split(" | ")[0]
+        self.assertEqual(body,
+                         "Weekly (Fable)   0%  ░░░░░░░░░░")
+
+    def test_rows_use_monospace_font_for_alignment(self):
+        row = next(line for line in self.lines if "Session (5h)" in line)
+        self.assertIn("font=Menlo", row)
+
+    def test_spend_row_shows_money_and_warning(self):
+        self.assertIn(
+            "Extra usage    100%  ▓▓▓▓▓▓▓▓▓▓  $50.25 / $50.00 ⚠️", self.text)
+
+    def test_spend_note_rendered(self):
+        self.assertIn("Credit purchases unavailable on this plan", self.text)
+
+    def test_footer_actions(self):
+        self.assertIn("Updated 11:09:00", self.text)
+        self.assertIn("Refresh now | refresh=true", self.text)
+        self.assertIn("href=" + self.cfg.usage_page_url, self.text)
+
+    def test_no_colour_on_title_when_all_limits_normal(self):
+        self.assertNotIn("color=", self.lines[0])
+
+
+class RenderSeverityTest(unittest.TestCase):
+    def setUp(self):
+        self.addCleanup(support.pin_timezone())
+        self.cfg = config.load_config(env={})
+
+    def title_for(self, session_percent, severity):
+        payload = support.load_fixture()
+        payload["limits"][0]["percent"] = session_percent
+        payload["limits"][0]["severity"] = severity
+        snapshot = model.normalize(payload, self.cfg, support.NOW)
+        text = render.render(snapshot, "Max 5x (team)", render.STATE_OK,
+                             support.NOW, self.cfg)
+        return text.splitlines()[0]
+
+    def test_warning_limit_colours_the_title(self):
+        title = self.title_for(85, "warning")
+        self.assertIn("color=", title)
+        self.assertTrue(title.startswith("◱ 85% · 25% · ⚠️"))
+
+    def test_critical_limit_colours_the_title_differently(self):
+        warning = self.title_for(85, "warning")
+        critical = self.title_for(97, "critical")
+        self.assertNotEqual(warning.split("color=")[1],
+                            critical.split("color=")[1])
+
+    def test_no_warning_glyph_when_spend_is_normal(self):
+        payload = support.load_fixture()
+        payload["spend"]["severity"] = "normal"
+        payload["spend"]["percent"] = 10
+        snapshot = model.normalize(payload, self.cfg, support.NOW)
+        title = render.render(snapshot, "Max 5x (team)", render.STATE_OK,
+                              support.NOW, self.cfg).splitlines()[0]
+        self.assertEqual(title, "◱ 61% · 25%")
+
+
+class RenderDegradedTest(unittest.TestCase):
+    def setUp(self):
+        self.addCleanup(support.pin_timezone())
+        self.cfg = config.load_config(env={})
+        self.snapshot = model.normalize(support.load_fixture(), self.cfg,
+                                        support.NOW)
+
+    def render_state(self, state, snapshot=None):
+        return render.render(snapshot, "Max 5x (team)", state, support.NOW,
+                             self.cfg)
+
+    def test_not_signed_in(self):
+        text = self.render_state(
+            render.ViewState("not_signed_in", "Not signed in to Claude Code"))
+        self.assertEqual(text.splitlines()[0], "◱ —")
+        self.assertIn("Not signed in to Claude Code", text)
+        self.assertIn("claude /login", text)
+
+    def test_token_expired_keeps_cached_numbers_and_marks_them(self):
+        text = self.render_state(
+            render.ViewState("token_expired", "Token expired"), self.snapshot)
+        self.assertEqual(text.splitlines()[0], "◱ 61% · 25% · ⚠️ ⌛")
+        self.assertIn("Token expired", text)
+        self.assertIn("never", text.lower())
+
+    def test_offline_shows_snapshot_age(self):
+        text = self.render_state(
+            render.ViewState("offline", "Offline — snapshot from 11:06"),
+            self.snapshot)
+        self.assertIn("⌛", text.splitlines()[0])
+        self.assertIn("Offline — snapshot from 11:06", text)
+
+    def test_rate_limited_reports_retry_time(self):
+        retry = support.NOW.replace(minute=39)
+        state = render.ViewState("rate_limited", "Rate limited", retry)
+        text = self.render_state(state, self.snapshot)
+        self.assertIn("Rate limited", text)
+        self.assertIn("11:39", text)
+
+    def test_schema_error_without_snapshot(self):
+        text = self.render_state(
+            render.ViewState("schema_error", "Unexpected response shape"))
+        self.assertEqual(text.splitlines()[0], "◱ ?")
+        self.assertIn("Unexpected response shape", text)
+
+    def test_no_data_still_offers_refresh(self):
+        text = self.render_state(render.ViewState("no_data", "No data yet"))
+        self.assertEqual(text.splitlines()[0], "◱ ?")
+        self.assertIn("Refresh now | refresh=true", text)
+
+    def test_degraded_output_still_has_single_title_line(self):
+        for state in ("not_signed_in", "schema_error", "no_data"):
+            text = self.render_state(render.ViewState(state, "detail"))
+            self.assertEqual(len(sections(text)[0]), 1, state)
+
+
+class BarTest(unittest.TestCase):
+    def setUp(self):
+        self.cfg = config.load_config(env={})
+
+    def test_bar_endpoints_and_rounding(self):
+        cases = {0: "░░░░░░░░░░", 25: "▓▓░░░░░░░░", 61: "▓▓▓▓▓▓░░░░",
+                 100: "▓▓▓▓▓▓▓▓▓▓"}
+        for percent, expected in cases.items():
+            self.assertEqual(render.bar(percent, self.cfg.bar_width), expected,
+                             percent)
+
+    def test_tiny_nonzero_percent_still_shows_one_block(self):
+        self.assertEqual(render.bar(1, self.cfg.bar_width),
+                         "▓░░░░░░░░░")
+
+    def test_out_of_range_percent_is_clamped(self):
+        self.assertEqual(render.bar(140, self.cfg.bar_width), "▓▓▓▓▓▓▓▓▓▓")
+        self.assertEqual(render.bar(-5, self.cfg.bar_width), "░░░░░░░░░░")
+
+
+if __name__ == "__main__":
+    unittest.main()
