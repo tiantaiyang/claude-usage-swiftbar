@@ -75,7 +75,7 @@ class NormalizeTest(unittest.TestCase):
 
     def test_severity_derived_from_thresholds_when_absent(self):
         payload = support.deep_copy(self.payload)
-        for row, percent in zip(payload["limits"], (10, 85, 97)):
+        for row, percent in zip(payload["limits"], (10, 92, 97)):
             row.pop("severity")
             row["percent"] = percent
         severities = [row.severity for row in self.normalize(payload).limits]
@@ -104,6 +104,17 @@ class NormalizeTest(unittest.TestCase):
         row = self.normalize().limits[0]
         with self.assertRaises(AttributeError):
             row.percent = 5
+
+    def test_max_limit_percent_is_the_highest_limit(self):
+        # 61 session, 25 weekly, 0 scoped.
+        self.assertEqual(self.normalize().max_limit_percent(), 61.0)
+
+    def test_max_limit_percent_ignores_spend(self):
+        # Spend sits at 100% in the fixture and must not leak in here.
+        self.assertEqual(self.normalize().max_limit_percent(), 61.0)
+
+    def test_max_limit_percent_without_rows_is_zero(self):
+        self.assertEqual(self.normalize({}).max_limit_percent(), 0.0)
 
     def test_reset_for_kind_returns_the_matching_reset_time(self):
         snapshot = self.normalize()

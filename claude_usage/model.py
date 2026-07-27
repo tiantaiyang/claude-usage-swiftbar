@@ -71,12 +71,9 @@ class Snapshot(NamedTuple):
                 return row.resets_at
         return None
 
-    def worst_severity(self) -> str:
-        worst = SEVERITY_NORMAL
-        for row in self.limits:
-            if SEVERITY_ORDER.get(row.severity, 0) > SEVERITY_ORDER[worst]:
-                worst = row.severity
-        return worst
+    def max_limit_percent(self) -> float:
+        """Highest quota limit. Excludes spend, which is not a quota."""
+        return max((row.percent for row in self.limits), default=0.0)
 
 
 def humanise(token: str) -> str:

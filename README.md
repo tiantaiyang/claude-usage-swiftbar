@@ -14,7 +14,9 @@ Extra usage    100%  ▓▓▓▓▓▓▓▓▓▓  $50.25 / $50.00 ⚠️
 ```
 
 The menu bar carries the session percentage, a countdown to the 5-hour window
-reset, and a warning glyph when extra-usage credits are over their cap. The
+reset, and a ⚠️ once the session or a weekly quota reaches 90%. Extra-usage
+credits are reported in the dropdown only — they can sit over their cap
+indefinitely, so they would otherwise light the warning permanently. The
 numbers are the same ones `/usage` reports inside Claude Code — they come from
 the account's own usage endpoint, not from estimating token counts.
 
@@ -129,7 +131,7 @@ Every tunable is an environment variable; defaults live in
 | `CLAUDE_USAGE_BETA_HEADER` | `oauth-2025-04-20` |
 | `CLAUDE_USAGE_KEYCHAIN_SERVICE` | `Claude Code-credentials` |
 | `CLAUDE_USAGE_TIMEOUT` | `8` seconds |
-| `CLAUDE_USAGE_WARN_PCT` / `_CRIT_PCT` | `80` / `95` |
+| `CLAUDE_USAGE_WARN_PCT` / `_CRIT_PCT` | `90` / `95` — the menu-bar ⚠️ appears once any quota limit reaches `WARN_PCT` |
 | `CLAUDE_USAGE_BAR_WIDTH` | `10` |
 | `CLAUDE_USAGE_GLYPH` | `◱` |
 | `CLAUDE_USAGE_STALE_AFTER` | `900` seconds |

@@ -173,7 +173,6 @@ class RunTest(unittest.TestCase):
             self.assertTrue(text.strip())
 
 
-
 class FetchTtlTest(unittest.TestCase):
     """Rendering runs every 30s; fetching must not. The countdown only needs
     the local clock and the cached reset time."""

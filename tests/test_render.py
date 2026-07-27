@@ -93,7 +93,7 @@ class RenderSeverityTest(unittest.TestCase):
             self.assertNotIn("color=", title, severity)
 
     def test_title_still_reports_the_number_at_warning(self):
-        self.assertEqual(self.title_for(85, "warning"), "◱ 85% · 3h00 · ⚠️")
+        self.assertEqual(self.title_for(92, "warning"), "◱ 92% · 3h00 · ⚠️")
 
     def test_rows_stay_uncoloured_at_every_severity(self):
         for severity in ("normal", "warning", "critical"):
@@ -127,12 +127,36 @@ class RenderSeverityTest(unittest.TestCase):
         return render.render(snapshot, "Max 5x (team)", render.STATE_OK,
                              support.NOW, self.cfg).splitlines()[0]
 
-    def test_warns_when_the_session_limit_is_elevated(self):
-        self.assertEqual(self.title_for(85, "warning"), "◱ 85% · 3h00 · ⚠️")
+    def test_warns_when_the_session_limit_reaches_the_threshold(self):
+        self.assertEqual(self.title_for(92, "warning"), "◱ 92% · 3h00 · ⚠️")
+
+    def test_warns_exactly_at_the_threshold(self):
+        self.assertEqual(self.title_for(90, "normal"), "◱ 90% · 3h00 · ⚠️")
+
+    def test_quiet_just_below_the_threshold(self):
+        self.assertEqual(self.title_for(89, "normal"), "◱ 89% · 3h00")
+
+    def test_api_severity_label_alone_does_not_trigger_the_warning(self):
+        # The endpoint labels a limit "warning" well before 90% -- observed at
+        # 78%. The threshold decides, not the label, so the glyph means what
+        # the configured number says it means.
+        self.assertEqual(self.title_for(78, "warning"), "◱ 78% · 3h00")
+
+    def test_api_critical_label_alone_does_not_trigger_the_warning(self):
+        self.assertEqual(self.title_for(50, "critical"), "◱ 50% · 3h00")
+
+    def test_threshold_is_configurable(self):
+        cfg = config.load_config(env={"CLAUDE_USAGE_WARN_PCT": "50"})
+        payload = support.load_fixture()
+        payload["limits"][0]["percent"] = 60
+        snapshot = model.normalize(payload, cfg, support.NOW)
+        title = render.render(snapshot, "p", render.STATE_OK, support.NOW,
+                              cfg).splitlines()[0]
+        self.assertIn("⚠️", title)
 
     def test_warns_on_weekly_even_when_session_is_low(self):
         payload = support.load_fixture()
-        payload["limits"][1]["percent"] = 88
+        payload["limits"][1]["percent"] = 92
         payload["limits"][1]["severity"] = "warning"
         self.assertEqual(self.title_of(payload), "◱ 61% · 3h00 · ⚠️")
 
@@ -154,11 +178,11 @@ class RenderSeverityTest(unittest.TestCase):
         payload["limits"][0].pop("severity")
         self.assertEqual(self.title_of(payload), "◱ 90% · 3h00 · ⚠️")
 
-    def test_no_warning_just_below_the_threshold(self):
+    def test_no_warning_below_the_threshold_without_a_label(self):
         payload = support.load_fixture()
-        payload["limits"][0]["percent"] = 79
+        payload["limits"][0]["percent"] = 89
         payload["limits"][0].pop("severity")
-        self.assertEqual(self.title_of(payload), "◱ 79% · 3h00")
+        self.assertEqual(self.title_of(payload), "◱ 89% · 3h00")
 
 
 class RenderDegradedTest(unittest.TestCase):
@@ -235,7 +259,6 @@ class BarTest(unittest.TestCase):
     def test_out_of_range_percent_is_clamped(self):
         self.assertEqual(render.bar(140, self.cfg.bar_width), "▓▓▓▓▓▓▓▓▓▓")
         self.assertEqual(render.bar(-5, self.cfg.bar_width), "░░░░░░░░░░")
-
 
 
 class CompactDeltaTest(unittest.TestCase):

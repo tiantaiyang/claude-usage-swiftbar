@@ -20,7 +20,7 @@ class DefaultsTest(unittest.TestCase):
         self.assertEqual(self.cfg.keychain_service, "Claude Code-credentials")
 
     def test_threshold_defaults(self):
-        self.assertEqual((self.cfg.warn_pct, self.cfg.crit_pct), (80, 95))
+        self.assertEqual((self.cfg.warn_pct, self.cfg.crit_pct), (90, 95))
 
     def test_fetch_ttl_default(self):
         self.assertEqual(self.cfg.fetch_ttl, 120)
@@ -76,7 +76,7 @@ class OverrideTest(unittest.TestCase):
     def test_invalid_numbers_fall_back_to_defaults(self):
         cfg = config.load_config(env={"CLAUDE_USAGE_WARN_PCT": "abc",
                                       "CLAUDE_USAGE_TIMEOUT": ""})
-        self.assertEqual(cfg.warn_pct, 80)
+        self.assertEqual(cfg.warn_pct, 90)
         self.assertEqual(cfg.timeout, 8.0)
 
     def test_tilde_in_cache_path_is_expanded(self):
