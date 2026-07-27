@@ -94,5 +94,36 @@ else
     check "reports nothing when absent" "" "$(run_case "$H2")"
 fi
 
+
+# ---------------------------------------------------------------------------
+# resolve_plugin_dir: the plugin must land in the folder SwiftBar is really
+# watching, not a folder of our choosing.
+sed -n '/^resolve_plugin_dir()/,/^}/p' "$REPO/install.sh" > "$WORK/dirfn.sh"
+[ -s "$WORK/dirfn.sh" ] || { echo "could not extract resolve_plugin_dir"; exit 1; }
+
+cat > "$WORK/bin/defaults" <<EOF
+#!/bin/sh
+[ -n "\${STUB_DEFAULTS:-}" ] && { printf '%s\n' "\$STUB_DEFAULTS"; exit 0; }
+exit 1
+EOF
+chmod +x "$WORK/bin/defaults"
+
+run_dir() {
+    PATH="$WORK/bin:$PATH" sh -c '
+        set -eu
+        BUNDLE_ID=com.ameba.SwiftBar
+        . "$1/dirfn.sh"
+        resolve_plugin_dir || true
+    ' _ "$WORK"
+}
+
+echo
+echo "resolve_plugin_dir:"
+check "uses the folder SwiftBar is configured with" "/Users/x/Custom Plugins" \
+    "$(STUB_DEFAULTS="/Users/x/Custom Plugins" run_dir)"
+check "keeps spaces in the path intact" "/Volumes/Ext Disk/SB Plugins" \
+    "$(STUB_DEFAULTS="/Volumes/Ext Disk/SB Plugins" run_dir)"
+check "reports nothing when unset, so the caller sets one" "" "$(run_dir)"
+
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

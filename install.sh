@@ -98,6 +98,16 @@ find_swiftbar() {
     return 1
 }
 
+# Whichever folder SwiftBar is actually watching. Read through cfprefsd, so a
+# folder the user picked in SwiftBar's own UI is seen even while it is running;
+# SwiftBar is not sandboxed, so its prefs are in the standard domain.
+resolve_plugin_dir() {
+    _dir=$(defaults read "$BUNDLE_ID" PluginDirectory 2>/dev/null) || _dir=""
+    [ -n "$_dir" ] || return 1
+    printf '%s\n' "$_dir"
+}
+
+
 # ---------------------------------------------------------------- 1. platform
 
 step "Checking this Mac"
@@ -193,7 +203,7 @@ fi
 # --------------------------------------------------------------- 5. plugin dir
 
 step "Wiring up SwiftBar"
-PLUGIN_DIR=$(defaults read "$BUNDLE_ID" PluginDirectory 2>/dev/null || true)
+PLUGIN_DIR=$(resolve_plugin_dir || true)
 PREF_CHANGED=""
 if [ -n "$PLUGIN_DIR" ]; then
     note "reusing SwiftBar's configured plugin folder: $PLUGIN_DIR"
@@ -205,7 +215,10 @@ else
     note "set plugin folder to $PLUGIN_DIR"
     note "(setting this up front skips SwiftBar's first-run folder dialog)"
 fi
-mkdir -p "$PLUGIN_DIR"
+mkdir -p "$PLUGIN_DIR" 2>/dev/null || fail "cannot create $PLUGIN_DIR
+       SwiftBar is pointed at a folder this installer cannot write to."
+[ -w "$PLUGIN_DIR" ] || fail "$PLUGIN_DIR is not writable
+       SwiftBar is pointed at a folder this installer cannot write to."
 
 # An earlier release used a different refresh interval in the filename. Leaving
 # it behind would make SwiftBar run both and show two menu bar items.
