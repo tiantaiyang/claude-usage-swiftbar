@@ -145,7 +145,11 @@ def _title(snapshot: Optional[Snapshot], state: ViewState, now: dt.datetime,
     countdown = _countdown_text(snapshot, now)
     if countdown:
         parts.append(countdown)
-    if snapshot.spend is not None and _is_elevated(snapshot.spend.severity):
+    # Driven by the quota limits only -- session and weekly. Extra-usage
+    # credits can sit over their cap indefinitely, so letting spend drive this
+    # produced a permanent warning even at 0% session usage. Spend is reported
+    # on its own row in the menu instead.
+    if _is_elevated(snapshot.worst_severity()):
         parts.append(WARN_MARK)
     text = "{} {}".format(cfg.glyph, " · ".join(parts))
     if state.kind != "ok":

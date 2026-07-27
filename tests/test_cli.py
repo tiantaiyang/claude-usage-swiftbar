@@ -67,7 +67,7 @@ class RunTest(unittest.TestCase):
     def test_happy_path_renders_live_numbers(self):
         fake = FakeDeps()
         text = self.run_with(fake)
-        self.assertEqual(text.splitlines()[0], "◱ 61% · 3h00 · ⚠️")
+        self.assertEqual(text.splitlines()[0], "◱ 61% · 3h00")
         self.assertEqual(fake.fetch_calls, 1)
 
     def test_happy_path_persists_the_payload(self):
@@ -94,7 +94,7 @@ class RunTest(unittest.TestCase):
         fake = FakeDeps(fetch_result=api.TokenRejected("401"),
                         cached=cached_record())
         text = self.run_with(fake)
-        self.assertEqual(text.splitlines()[0], "◱ 61% · 3h00 · ⚠️ ⌛")
+        self.assertEqual(text.splitlines()[0], "◱ 61% · 3h00 ⌛")
         self.assertIn("Token expired", text)
 
     def test_token_rejected_without_cache_reports_the_problem(self):
@@ -157,7 +157,7 @@ class RunTest(unittest.TestCase):
         deps = cli.Deps(fake.read_credentials, fake.fetch_usage,
                         fake.cache_load, exploding_save)
         text = cli.run(self.cfg, support.NOW, deps)
-        self.assertEqual(text.splitlines()[0], "◱ 61% · 3h00 · ⚠️")
+        self.assertEqual(text.splitlines()[0], "◱ 61% · 3h00")
 
     def test_corrupt_cache_does_not_break_degraded_rendering(self):
         fake = FakeDeps(fetch_result=api.NetworkError("offline"),
@@ -193,7 +193,7 @@ class FetchTtlTest(unittest.TestCase):
         fresh = support.NOW - dt.timedelta(seconds=self.cfg.fetch_ttl - 10)
         fake = FakeDeps(cached=cached_record(fetched_at=fresh))
         text = cli.run(self.cfg, support.NOW, fake.as_deps())
-        self.assertEqual(text.splitlines()[0], "◱ 61% · 3h00 · ⚠️")
+        self.assertEqual(text.splitlines()[0], "◱ 61% · 3h00")
         self.assertNotIn("⌛", text)
 
     def test_cache_outside_ttl_does_fetch(self):

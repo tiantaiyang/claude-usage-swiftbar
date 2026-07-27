@@ -22,7 +22,7 @@ class RenderOkTest(unittest.TestCase):
 
     def test_menu_bar_title_matches_agreed_format(self):
         # session% + 5h countdown + spend warning; weekly lives in the menu.
-        self.assertEqual(self.lines[0], "◱ 61% · 3h00 · ⚠️")
+        self.assertEqual(self.lines[0], "◱ 61% · 3h00")
 
     def test_exactly_one_line_before_first_separator(self):
         # More than one line makes SwiftBar cycle the title.
@@ -122,14 +122,43 @@ class RenderSeverityTest(unittest.TestCase):
                              support.NOW, self.cfg)
         self.assertIn("color=" + CRIT_COLOR, text)
 
-    def test_no_warning_glyph_when_spend_is_normal(self):
-        payload = support.load_fixture()
-        payload["spend"]["severity"] = "normal"
-        payload["spend"]["percent"] = 10
+    def title_of(self, payload):
         snapshot = model.normalize(payload, self.cfg, support.NOW)
-        title = render.render(snapshot, "Max 5x (team)", render.STATE_OK,
-                              support.NOW, self.cfg).splitlines()[0]
-        self.assertEqual(title, "◱ 61% · 3h00")
+        return render.render(snapshot, "Max 5x (team)", render.STATE_OK,
+                             support.NOW, self.cfg).splitlines()[0]
+
+    def test_warns_when_the_session_limit_is_elevated(self):
+        self.assertEqual(self.title_for(85, "warning"), "◱ 85% · 3h00 · ⚠️")
+
+    def test_warns_when_a_weekly_limit_is_elevated_even_if_session_is_low(self):
+        payload = support.load_fixture()
+        payload["limits"][1]["percent"] = 88
+        payload["limits"][1]["severity"] = "warning"
+        self.assertEqual(self.title_of(payload), "◱ 61% · 3h00 · ⚠️")
+
+    def test_does_not_warn_for_extra_usage_alone(self):
+        # Extra-usage credits can sit over their cap indefinitely. Letting that
+        # drive the menu bar meant a permanent warning at 0% session usage.
+        payload = support.load_fixture()
+        payload["limits"][0]["percent"] = 0
+        payload["spend"]["severity"] = "critical"
+        payload["spend"]["percent"] = 100
+        self.assertEqual(self.title_of(payload), "◱ 0% · 3h00")
+
+    def test_warns_at_critical_severity(self):
+        self.assertEqual(self.title_for(97, "critical"), "◱ 97% · 3h00 · ⚠️")
+
+    def test_warning_derived_from_threshold_when_api_omits_severity(self):
+        payload = support.load_fixture()
+        payload["limits"][0]["percent"] = 90
+        payload["limits"][0].pop("severity")
+        self.assertEqual(self.title_of(payload), "◱ 90% · 3h00 · ⚠️")
+
+    def test_no_warning_just_below_the_threshold(self):
+        payload = support.load_fixture()
+        payload["limits"][0]["percent"] = 79
+        payload["limits"][0].pop("severity")
+        self.assertEqual(self.title_of(payload), "◱ 79% · 3h00")
 
 
 class RenderDegradedTest(unittest.TestCase):
@@ -153,7 +182,7 @@ class RenderDegradedTest(unittest.TestCase):
     def test_token_expired_keeps_cached_numbers_and_marks_them(self):
         text = self.render_state(
             render.ViewState("token_expired", "Token expired"), self.snapshot)
-        self.assertEqual(text.splitlines()[0], "◱ 61% · 3h00 · ⚠️ ⌛")
+        self.assertEqual(text.splitlines()[0], "◱ 61% · 3h00 ⌛")
         self.assertIn("Token expired", text)
         self.assertIn("never", text.lower())
 
@@ -282,7 +311,7 @@ class TitleCountdownTest(unittest.TestCase):
     def test_countdown_omitted_when_reset_time_is_null(self):
         payload = support.load_fixture()
         payload["limits"][0]["resets_at"] = None
-        self.assertEqual(self.title(payload), "◱ 61% · ⚠️")
+        self.assertEqual(self.title(payload), "◱ 61%")
 
     def test_weekly_percent_is_not_in_the_title(self):
         self.assertNotIn("25%", self.title(support.load_fixture()))
