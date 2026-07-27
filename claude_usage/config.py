@@ -17,6 +17,9 @@ DEFAULT_WARN_PCT = 90
 DEFAULT_CRIT_PCT = 95
 DEFAULT_BAR_WIDTH = 10
 DEFAULT_GLYPH = "◱"
+# Native SF Symbol: monochrome, vector, and it follows the menu bar's
+# light/dark appearance. Set the env var to "" to fall back to the glyph.
+DEFAULT_SFIMAGE = "gauge.medium"
 DEFAULT_STALE_AFTER = 900
 DEFAULT_BACKOFF = 300
 # Rendering runs far more often than this so the countdown moves;
@@ -39,6 +42,7 @@ class Config(NamedTuple):
     crit_pct: int
     bar_width: int
     glyph: str
+    sfimage: str
     stale_after: int
     backoff_seconds: int
     fetch_ttl: int
@@ -46,6 +50,11 @@ class Config(NamedTuple):
     keychain_service: str
     usage_page_url: str
     user_agent: str
+
+
+def _get_raw(env: Mapping[str, str], name: str) -> Optional[str]:
+    """Unlike _get, distinguishes "unset" from "explicitly empty"."""
+    return env.get(ENV_PREFIX + name)
 
 
 def _get(env: Mapping[str, str], name: str) -> Optional[str]:
@@ -81,6 +90,8 @@ def load_config(env: Optional[Mapping[str, str]] = None) -> Config:
         crit_pct=_as_int(_get(env, "CRIT_PCT"), DEFAULT_CRIT_PCT),
         bar_width=_as_int(_get(env, "BAR_WIDTH"), DEFAULT_BAR_WIDTH),
         glyph=_get(env, "GLYPH") or DEFAULT_GLYPH,
+        sfimage=(DEFAULT_SFIMAGE if _get_raw(env, "SFIMAGE") is None
+                 else _get_raw(env, "SFIMAGE")),
         stale_after=_as_int(_get(env, "STALE_AFTER"), DEFAULT_STALE_AFTER),
         backoff_seconds=_as_int(_get(env, "BACKOFF"), DEFAULT_BACKOFF),
         fetch_ttl=_as_int(_get(env, "FETCH_TTL"), DEFAULT_FETCH_TTL),

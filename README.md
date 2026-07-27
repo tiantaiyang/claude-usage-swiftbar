@@ -4,7 +4,7 @@ A SwiftBar menu-bar plugin showing Claude quota: the 5-hour session window,
 weekly limits, and extra-usage credits.
 
 ```
-◱ 69% · 2h08 · ⚠️
+􀍽 69% · 2h08 · ⚠️      ← 􀍽 is the gauge.medium SF Symbol
 ---
 Claude usage — Max 5x (team)
 Session (5h)    69%  ▓▓▓▓▓▓░░░░  resets 14:10 (in 2h 41m)
@@ -13,8 +13,11 @@ Weekly (Fable)   0%  ░░░░░░░░░░
 Extra usage    100%  ▓▓▓▓▓▓▓▓▓▓  $50.25 / $50.00 ⚠️
 ```
 
-The menu bar carries the session percentage, a countdown to the 5-hour window
-reset, and a ⚠️ once the session or a weekly quota reaches 90%. Extra-usage
+The menu bar carries a native SF Symbol, the session percentage, a countdown to
+the 5-hour window reset, and a ⚠️ once the session or a weekly quota reaches
+90%. The icon is a template image, so it follows the menu bar's light and dark
+appearance and stays crisp on any display; swap it for any SF Symbol name with
+`CLAUDE_USAGE_SFIMAGE`. Extra-usage
 credits are reported in the dropdown only — they can sit over their cap
 indefinitely, so they would otherwise light the warning permanently. The
 numbers are the same ones `/usage` reports inside Claude Code — they come from
@@ -133,7 +136,8 @@ Every tunable is an environment variable; defaults live in
 | `CLAUDE_USAGE_TIMEOUT` | `8` seconds |
 | `CLAUDE_USAGE_WARN_PCT` / `_CRIT_PCT` | `90` / `95` — the menu-bar ⚠️ appears once any quota limit reaches `WARN_PCT` |
 | `CLAUDE_USAGE_BAR_WIDTH` | `10` |
-| `CLAUDE_USAGE_GLYPH` | `◱` |
+| `CLAUDE_USAGE_SFIMAGE` | `gauge.medium` — SF Symbol for the menu-bar icon; set to `""` to use the text glyph instead |
+| `CLAUDE_USAGE_GLYPH` | `◱` — fallback used only when `SFIMAGE` is empty |
 | `CLAUDE_USAGE_STALE_AFTER` | `900` seconds |
 | `CLAUDE_USAGE_BACKOFF` | `300` seconds (used when a 429 omits `Retry-After`) |
 | `CLAUDE_USAGE_FETCH_TTL` | `120` seconds — how old the cache must be before a real request |

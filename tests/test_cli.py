@@ -67,7 +67,7 @@ class RunTest(unittest.TestCase):
     def test_happy_path_renders_live_numbers(self):
         fake = FakeDeps()
         text = self.run_with(fake)
-        self.assertEqual(text.splitlines()[0], "◱ 61% · 3h00")
+        self.assertEqual(support.body(text.splitlines()[0]), "61% · 3h00")
         self.assertEqual(fake.fetch_calls, 1)
 
     def test_happy_path_persists_the_payload(self):
@@ -86,7 +86,7 @@ class RunTest(unittest.TestCase):
     def test_not_signed_in_skips_the_network(self):
         fake = FakeDeps(credentials=keychain.NotSignedIn("no keychain item"))
         text = self.run_with(fake)
-        self.assertEqual(text.splitlines()[0], "◱ —")
+        self.assertEqual(support.body(text.splitlines()[0]), "—")
         self.assertEqual(fake.fetch_calls, 0)
         self.assertEqual(fake.saved, [])
 
@@ -94,13 +94,13 @@ class RunTest(unittest.TestCase):
         fake = FakeDeps(fetch_result=api.TokenRejected("401"),
                         cached=cached_record())
         text = self.run_with(fake)
-        self.assertEqual(text.splitlines()[0], "◱ 61% · 3h00 ⌛")
+        self.assertEqual(support.body(text.splitlines()[0]), "61% · 3h00 ⌛")
         self.assertIn("Token expired", text)
 
     def test_token_rejected_without_cache_reports_the_problem(self):
         fake = FakeDeps(fetch_result=api.TokenRejected("401"))
         text = self.run_with(fake)
-        self.assertEqual(text.splitlines()[0], "◱ ?")
+        self.assertEqual(support.body(text.splitlines()[0]), "?")
 
     def test_network_error_falls_back_to_cache(self):
         fake = FakeDeps(fetch_result=api.NetworkError("offline"),
@@ -119,7 +119,7 @@ class RunTest(unittest.TestCase):
     def test_schema_error_is_reported(self):
         fake = FakeDeps(fetch_result=api.SchemaError("unexpected shape"))
         text = self.run_with(fake)
-        self.assertEqual(text.splitlines()[0], "◱ ?")
+        self.assertEqual(support.body(text.splitlines()[0]), "?")
         self.assertIn("unexpected shape", text)
 
     def test_rate_limited_persists_a_backoff(self):
@@ -145,7 +145,7 @@ class RunTest(unittest.TestCase):
     def test_unexpected_exception_still_produces_valid_output(self):
         fake = FakeDeps(fetch_result=RuntimeError("boom"))
         text = self.run_with(fake)
-        self.assertEqual(text.splitlines()[0], "◱ ?")
+        self.assertEqual(support.body(text.splitlines()[0]), "?")
         self.assertIn("Refresh now | refresh=true", text)
 
     def test_cache_write_failure_does_not_break_rendering(self):
@@ -157,13 +157,13 @@ class RunTest(unittest.TestCase):
         deps = cli.Deps(fake.read_credentials, fake.fetch_usage,
                         fake.cache_load, exploding_save)
         text = cli.run(self.cfg, support.NOW, deps)
-        self.assertEqual(text.splitlines()[0], "◱ 61% · 3h00")
+        self.assertEqual(support.body(text.splitlines()[0]), "61% · 3h00")
 
     def test_corrupt_cache_does_not_break_degraded_rendering(self):
         fake = FakeDeps(fetch_result=api.NetworkError("offline"),
                         cached={"version": 1, "payload": "not-a-dict"})
         text = self.run_with(fake)
-        self.assertEqual(text.splitlines()[0], "◱ ?")
+        self.assertEqual(support.body(text.splitlines()[0]), "?")
 
     def test_output_is_never_empty(self):
         for result in (support.load_fixture(), api.NetworkError("x"),
@@ -192,7 +192,7 @@ class FetchTtlTest(unittest.TestCase):
         fresh = support.NOW - dt.timedelta(seconds=self.cfg.fetch_ttl - 10)
         fake = FakeDeps(cached=cached_record(fetched_at=fresh))
         text = cli.run(self.cfg, support.NOW, fake.as_deps())
-        self.assertEqual(text.splitlines()[0], "◱ 61% · 3h00")
+        self.assertEqual(support.body(text.splitlines()[0]), "61% · 3h00")
         self.assertNotIn("⌛", text)
 
     def test_cache_outside_ttl_does_fetch(self):

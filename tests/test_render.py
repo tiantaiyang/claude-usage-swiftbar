@@ -22,7 +22,7 @@ class RenderOkTest(unittest.TestCase):
 
     def test_menu_bar_title_matches_agreed_format(self):
         # session% + 5h countdown + spend warning; weekly lives in the menu.
-        self.assertEqual(self.lines[0], "◱ 61% · 3h00")
+        self.assertEqual(support.body(self.lines[0]), "61% · 3h00")
 
     def test_exactly_one_line_before_first_separator(self):
         # More than one line makes SwiftBar cycle the title.
@@ -70,6 +70,48 @@ class RenderOkTest(unittest.TestCase):
                 self.assertNotIn("color=", line, line)
 
 
+class MenuBarIconTest(unittest.TestCase):
+    """The title uses a native SF Symbol rather than a text glyph."""
+
+    def setUp(self):
+        self.addCleanup(support.pin_timezone())
+        self.cfg = config.load_config(env={})
+        self.snapshot = model.normalize(support.load_fixture(), self.cfg,
+                                        support.NOW)
+
+    def title(self, cfg=None, snapshot=..., state=None):
+        cfg = cfg or self.cfg
+        snap = self.snapshot if snapshot is ... else snapshot
+        return render.render(snap, "Max 5x (team)",
+                             state or render.STATE_OK, support.NOW,
+                             cfg).splitlines()[0]
+
+    def test_title_carries_the_sf_symbol(self):
+        self.assertIn("sfimage=gauge.medium", self.title())
+
+    def test_text_glyph_is_not_used_when_a_symbol_is_set(self):
+        self.assertNotIn("◱", self.title())
+
+    def test_symbol_is_configurable(self):
+        cfg = config.load_config(env={"CLAUDE_USAGE_SFIMAGE": "hourglass"})
+        self.assertIn("sfimage=hourglass", self.title(cfg=cfg))
+
+    def test_empty_symbol_falls_back_to_the_text_glyph(self):
+        cfg = config.load_config(env={"CLAUDE_USAGE_SFIMAGE": ""})
+        title = self.title(cfg=cfg)
+        self.assertNotIn("sfimage", title)
+        self.assertTrue(title.startswith("◱ "), title)
+
+    def test_degraded_titles_keep_the_symbol(self):
+        for state in ("not_signed_in", "no_data", "offline"):
+            title = self.title(state=render.ViewState(state, "d"))
+            self.assertIn("sfimage=gauge.medium", title, state)
+
+    def test_stale_marker_stays_inside_the_text_not_the_params(self):
+        title = self.title(state=render.ViewState("offline", "d"))
+        self.assertTrue(support.body(title).endswith("⌛"), title)
+
+
 class RenderSeverityTest(unittest.TestCase):
     def setUp(self):
         self.addCleanup(support.pin_timezone())
@@ -93,7 +135,8 @@ class RenderSeverityTest(unittest.TestCase):
             self.assertNotIn("color=", title, severity)
 
     def test_title_still_reports_the_number_at_warning(self):
-        self.assertEqual(self.title_for(92, "warning"), "◱ 92% · 3h00 · ⚠️")
+        self.assertEqual(support.body(self.title_for(92, "warning")),
+                         "92% · 3h00 · ⚠️")
 
     def test_rows_stay_uncoloured_at_every_severity(self):
         for severity in ("normal", "warning", "critical"):
@@ -128,22 +171,27 @@ class RenderSeverityTest(unittest.TestCase):
                              support.NOW, self.cfg).splitlines()[0]
 
     def test_warns_when_the_session_limit_reaches_the_threshold(self):
-        self.assertEqual(self.title_for(92, "warning"), "◱ 92% · 3h00 · ⚠️")
+        self.assertEqual(support.body(self.title_for(92, "warning")),
+                         "92% · 3h00 · ⚠️")
 
     def test_warns_exactly_at_the_threshold(self):
-        self.assertEqual(self.title_for(90, "normal"), "◱ 90% · 3h00 · ⚠️")
+        self.assertEqual(support.body(self.title_for(90, "normal")),
+                         "90% · 3h00 · ⚠️")
 
     def test_quiet_just_below_the_threshold(self):
-        self.assertEqual(self.title_for(89, "normal"), "◱ 89% · 3h00")
+        self.assertEqual(support.body(self.title_for(89, "normal")),
+                         "89% · 3h00")
 
     def test_api_severity_label_alone_does_not_trigger_the_warning(self):
         # The endpoint labels a limit "warning" well before 90% -- observed at
         # 78%. The threshold decides, not the label, so the glyph means what
         # the configured number says it means.
-        self.assertEqual(self.title_for(78, "warning"), "◱ 78% · 3h00")
+        self.assertEqual(support.body(self.title_for(78, "warning")),
+                         "78% · 3h00")
 
     def test_api_critical_label_alone_does_not_trigger_the_warning(self):
-        self.assertEqual(self.title_for(50, "critical"), "◱ 50% · 3h00")
+        self.assertEqual(support.body(self.title_for(50, "critical")),
+                         "50% · 3h00")
 
     def test_threshold_is_configurable(self):
         cfg = config.load_config(env={"CLAUDE_USAGE_WARN_PCT": "50"})
@@ -158,7 +206,8 @@ class RenderSeverityTest(unittest.TestCase):
         payload = support.load_fixture()
         payload["limits"][1]["percent"] = 92
         payload["limits"][1]["severity"] = "warning"
-        self.assertEqual(self.title_of(payload), "◱ 61% · 3h00 · ⚠️")
+        self.assertEqual(support.body(self.title_of(payload)),
+                         "61% · 3h00 · ⚠️")
 
     def test_does_not_warn_for_extra_usage_alone(self):
         # Extra-usage credits can sit over their cap indefinitely. Letting that
@@ -167,22 +216,24 @@ class RenderSeverityTest(unittest.TestCase):
         payload["limits"][0]["percent"] = 0
         payload["spend"]["severity"] = "critical"
         payload["spend"]["percent"] = 100
-        self.assertEqual(self.title_of(payload), "◱ 0% · 3h00")
+        self.assertEqual(support.body(self.title_of(payload)), "0% · 3h00")
 
     def test_warns_at_critical_severity(self):
-        self.assertEqual(self.title_for(97, "critical"), "◱ 97% · 3h00 · ⚠️")
+        self.assertEqual(support.body(self.title_for(97, "critical")),
+                         "97% · 3h00 · ⚠️")
 
     def test_warning_derived_from_threshold_when_api_omits_severity(self):
         payload = support.load_fixture()
         payload["limits"][0]["percent"] = 90
         payload["limits"][0].pop("severity")
-        self.assertEqual(self.title_of(payload), "◱ 90% · 3h00 · ⚠️")
+        self.assertEqual(support.body(self.title_of(payload)),
+                         "90% · 3h00 · ⚠️")
 
     def test_no_warning_below_the_threshold_without_a_label(self):
         payload = support.load_fixture()
         payload["limits"][0]["percent"] = 89
         payload["limits"][0].pop("severity")
-        self.assertEqual(self.title_of(payload), "◱ 89% · 3h00")
+        self.assertEqual(support.body(self.title_of(payload)), "89% · 3h00")
 
 
 class RenderDegradedTest(unittest.TestCase):
@@ -199,14 +250,14 @@ class RenderDegradedTest(unittest.TestCase):
     def test_not_signed_in(self):
         text = self.render_state(
             render.ViewState("not_signed_in", "Not signed in to Claude Code"))
-        self.assertEqual(text.splitlines()[0], "◱ —")
+        self.assertEqual(support.body(text.splitlines()[0]), "—")
         self.assertIn("Not signed in to Claude Code", text)
         self.assertIn("claude /login", text)
 
     def test_token_expired_keeps_cached_numbers_and_marks_them(self):
         text = self.render_state(
             render.ViewState("token_expired", "Token expired"), self.snapshot)
-        self.assertEqual(text.splitlines()[0], "◱ 61% · 3h00 ⌛")
+        self.assertEqual(support.body(text.splitlines()[0]), "61% · 3h00 ⌛")
         self.assertIn("Token expired", text)
         self.assertIn("never", text.lower())
 
@@ -227,12 +278,12 @@ class RenderDegradedTest(unittest.TestCase):
     def test_schema_error_without_snapshot(self):
         text = self.render_state(
             render.ViewState("schema_error", "Unexpected response shape"))
-        self.assertEqual(text.splitlines()[0], "◱ ?")
+        self.assertEqual(support.body(text.splitlines()[0]), "?")
         self.assertIn("Unexpected response shape", text)
 
     def test_no_data_still_offers_refresh(self):
         text = self.render_state(render.ViewState("no_data", "No data yet"))
-        self.assertEqual(text.splitlines()[0], "◱ ?")
+        self.assertEqual(support.body(text.splitlines()[0]), "?")
         self.assertIn("Refresh now | refresh=true", text)
 
     def test_degraded_output_still_has_single_title_line(self):
@@ -329,12 +380,12 @@ class TitleCountdownTest(unittest.TestCase):
                              if row["kind"] != "session"]
         title = self.title(payload)
         self.assertNotIn("h0", title)
-        self.assertTrue(title.startswith("◱ 25%"), title)
+        self.assertTrue(support.body(title).startswith("25%"), title)
 
     def test_countdown_omitted_when_reset_time_is_null(self):
         payload = support.load_fixture()
         payload["limits"][0]["resets_at"] = None
-        self.assertEqual(self.title(payload), "◱ 61%")
+        self.assertEqual(support.body(self.title(payload)), "61%")
 
     def test_weekly_percent_is_not_in_the_title(self):
         self.assertNotIn("25%", self.title(support.load_fixture()))

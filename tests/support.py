@@ -39,6 +39,15 @@ def pin_timezone():
     return restore
 
 
+def body(line):
+    """A SwiftBar line without its trailing parameters.
+
+    Used only for equality assertions on the title text; checks about params
+    (colour, sfimage) must look at the whole line or they prove nothing.
+    """
+    return line.split(" | ")[0]
+
+
 def load_fixture(name="usage_full.json"):
     """Return a fresh deep copy so a test can never pollute another."""
     with (FIXTURES / name).open(encoding="utf-8") as handle:

@@ -129,12 +129,19 @@ def _countdown_text(snapshot: Snapshot, now: dt.datetime) -> str:
     return compact_delta(resets_at - now)
 
 
+def _decorate(body: str, cfg: Config) -> str:
+    """Attach the menu-bar icon: an SF Symbol, or the text glyph if unset."""
+    if cfg.sfimage:
+        return _item(body, "sfimage=" + cfg.sfimage)
+    return "{} {}".format(cfg.glyph, body)
+
+
 def _title(snapshot: Optional[Snapshot], state: ViewState, now: dt.datetime,
            cfg: Config) -> str:
     if state.kind == "not_signed_in":
-        return "{} {}".format(cfg.glyph, ABSENT_MARK)
+        return _decorate(ABSENT_MARK, cfg)
     if snapshot is None or not snapshot.limits:
-        return "{} {}".format(cfg.glyph, UNKNOWN_MARK)
+        return _decorate(UNKNOWN_MARK, cfg)
     parts = []
     session = snapshot.percent_for_kind(SESSION_KIND)
     if session is not None:
@@ -155,10 +162,10 @@ def _title(snapshot: Optional[Snapshot], state: ViewState, now: dt.datetime,
     # (observed at 78%) and the glyph should mean what warn_pct says.
     if snapshot.max_limit_percent() >= cfg.warn_pct:
         parts.append(WARN_MARK)
-    text = "{} {}".format(cfg.glyph, " · ".join(parts))
+    body = " · ".join(parts)
     if state.kind != "ok":
-        text += " " + STALE_MARK
-    return text
+        body += " " + STALE_MARK
+    return _decorate(body, cfg)
 
 
 def _is_elevated(severity: str) -> bool:
