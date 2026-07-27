@@ -159,6 +159,18 @@ class RenderSeverityTest(unittest.TestCase):
             "Max 5x (team)", render.STATE_OK, support.NOW, self.cfg)
         self.assertIn("color=" + MUTED_COLOR, text)
 
+    def test_muted_and_crit_colours_are_light_dark_pairs(self):
+        # A single value (no comma) applies the same colour in both menu-bar
+        # appearances. That is exactly what made the muted text unreadable on
+        # a light, translucent background: bumping the colour without also
+        # separating light/dark would repeat the same mistake.
+        for value in (MUTED_COLOR, CRIT_COLOR):
+            self.assertEqual(value.count(","), 1, value)
+            light, dark = value.split(",")
+            for part in (light, dark):
+                self.assertRegex(part, r"^#[0-9A-Fa-f]{6}$", value)
+            self.assertNotEqual(light, dark, value)
+
     def test_degraded_detail_keeps_its_alert_colour(self):
         text = render.render(None, "Claude",
                              render.ViewState("not_signed_in", "nope"),

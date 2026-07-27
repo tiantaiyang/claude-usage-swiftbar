@@ -31,7 +31,11 @@ DEFAULT_CACHE_PATH = "~/Library/Caches/claude-usage-swiftbar/snapshot.json"
 # numbers are deliberately left uncoloured so they stay legible in the menu
 # bar; these only tint error messages and de-emphasised metadata.
 CRIT_COLOR = "#C0392B,#FF6B6B"
-MUTED_COLOR = "#888888"
+# A single value applies the same colour in both appearances. #888888 read as
+# a near-invisible light grey against a pale, translucent light-mode menu --
+# this pair is a dark grey for light mode and a light grey for dark mode, each
+# with enough contrast to read as de-emphasised without disappearing.
+MUTED_COLOR = "#48484A,#D1D1D6"
 
 
 class Config(NamedTuple):
