@@ -58,17 +58,16 @@ def _cached_payload(record: Optional[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 def _cached_snapshot(record: Optional[Dict[str, Any]], cfg: Config,
-                     now: dt.datetime) -> Tuple[Optional[Snapshot], bool]:
-    """Return (snapshot, is_stale); snapshot is None when unusable."""
+                     now: dt.datetime) -> Tuple[Optional[Snapshot], float]:
+    """Return (snapshot, age_in_seconds); snapshot is None when unusable."""
     payload = _cached_payload(record)
     if not payload:
-        return None, False
+        return None, 0.0
     fetched_at = model.parse_timestamp((record or {}).get("fetched_at")) or now
     snapshot = model.normalize(payload, cfg, fetched_at)
     if not snapshot.limits:
-        return None, False
-    is_stale = (now - fetched_at).total_seconds() > cfg.stale_after
-    return snapshot, is_stale
+        return None, 0.0
+    return snapshot, (now - fetched_at).total_seconds()
 
 
 def _offline_state(snapshot: Optional[Snapshot], is_stale: bool,
@@ -90,10 +89,16 @@ def _resolve(cfg: Config, now: dt.datetime, deps: Deps,
              token: str) -> Tuple[Optional[Snapshot], render.ViewState]:
     record = _load_record(cfg, deps)
     backoff_until = model.parse_timestamp((record or {}).get("backoff_until"))
-    snapshot, is_stale = _cached_snapshot(record, cfg, now)
+    snapshot, age = _cached_snapshot(record, cfg, now)
+    is_stale = age > cfg.stale_after
 
     if backoff_until is not None and backoff_until > now:
         return snapshot, _rate_limited_state(backoff_until)
+
+    # Fresh enough to reuse. The countdown is recomputed from the local clock,
+    # so redrawing often costs nothing; only the data needs the network.
+    if snapshot is not None and age < cfg.fetch_ttl:
+        return snapshot, render.STATE_OK
 
     try:
         payload = deps.fetch_usage(token, cfg)

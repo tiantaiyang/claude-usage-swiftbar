@@ -22,6 +22,13 @@ class DefaultsTest(unittest.TestCase):
     def test_threshold_defaults(self):
         self.assertEqual((self.cfg.warn_pct, self.cfg.crit_pct), (80, 95))
 
+    def test_fetch_ttl_default(self):
+        self.assertEqual(self.cfg.fetch_ttl, 120)
+
+    def test_fetch_ttl_is_below_stale_after(self):
+        # "fresh enough to reuse" must be stricter than "too old to trust".
+        self.assertLess(self.cfg.fetch_ttl, self.cfg.stale_after)
+
     def test_presentation_defaults(self):
         self.assertEqual(self.cfg.bar_width, 10)
         self.assertEqual(self.cfg.glyph, "◱")
@@ -46,6 +53,7 @@ class OverrideTest(unittest.TestCase):
             "CLAUDE_USAGE_BAR_WIDTH": "6",
             "CLAUDE_USAGE_GLYPH": "C",
             "CLAUDE_USAGE_STALE_AFTER": "60",
+            "CLAUDE_USAGE_FETCH_TTL": "15",
             "CLAUDE_USAGE_CACHE_PATH": "/tmp/x/snap.json",
             "CLAUDE_USAGE_KEYCHAIN_SERVICE": "Other-credentials",
             "CLAUDE_USAGE_PAGE_URL": "https://example.invalid/settings",
@@ -59,6 +67,7 @@ class OverrideTest(unittest.TestCase):
         self.assertEqual(cfg.bar_width, 6)
         self.assertEqual(cfg.glyph, "C")
         self.assertEqual(cfg.stale_after, 60)
+        self.assertEqual(cfg.fetch_ttl, 15)
         self.assertEqual(cfg.cache_path, "/tmp/x/snap.json")
         self.assertEqual(cfg.keychain_service, "Other-credentials")
         self.assertEqual(cfg.usage_page_url,

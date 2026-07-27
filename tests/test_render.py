@@ -20,7 +20,8 @@ class RenderOkTest(unittest.TestCase):
         self.lines = self.text.splitlines()
 
     def test_menu_bar_title_matches_agreed_format(self):
-        self.assertEqual(self.lines[0], "◱ 61% · 25% · ⚠️")
+        # session% + 5h countdown + spend warning; weekly lives in the menu.
+        self.assertEqual(self.lines[0], "◱ 61% · 3h00 · ⚠️")
 
     def test_exactly_one_line_before_first_separator(self):
         # More than one line makes SwiftBar cycle the title.
@@ -80,7 +81,7 @@ class RenderSeverityTest(unittest.TestCase):
     def test_warning_limit_colours_the_title(self):
         title = self.title_for(85, "warning")
         self.assertIn("color=", title)
-        self.assertTrue(title.startswith("◱ 85% · 25% · ⚠️"))
+        self.assertTrue(title.startswith("◱ 85% · 3h00 · ⚠️"))
 
     def test_critical_limit_colours_the_title_differently(self):
         warning = self.title_for(85, "warning")
@@ -95,7 +96,7 @@ class RenderSeverityTest(unittest.TestCase):
         snapshot = model.normalize(payload, self.cfg, support.NOW)
         title = render.render(snapshot, "Max 5x (team)", render.STATE_OK,
                               support.NOW, self.cfg).splitlines()[0]
-        self.assertEqual(title, "◱ 61% · 25%")
+        self.assertEqual(title, "◱ 61% · 3h00")
 
 
 class RenderDegradedTest(unittest.TestCase):
@@ -119,7 +120,7 @@ class RenderDegradedTest(unittest.TestCase):
     def test_token_expired_keeps_cached_numbers_and_marks_them(self):
         text = self.render_state(
             render.ViewState("token_expired", "Token expired"), self.snapshot)
-        self.assertEqual(text.splitlines()[0], "◱ 61% · 25% · ⚠️ ⌛")
+        self.assertEqual(text.splitlines()[0], "◱ 61% · 3h00 · ⚠️ ⌛")
         self.assertIn("Token expired", text)
         self.assertIn("never", text.lower())
 
@@ -172,6 +173,86 @@ class BarTest(unittest.TestCase):
     def test_out_of_range_percent_is_clamped(self):
         self.assertEqual(render.bar(140, self.cfg.bar_width), "▓▓▓▓▓▓▓▓▓▓")
         self.assertEqual(render.bar(-5, self.cfg.bar_width), "░░░░░░░░░░")
+
+
+
+class CompactDeltaTest(unittest.TestCase):
+    """The menu-bar countdown format: short enough to sit in the title."""
+
+    def delta(self, **kwargs):
+        import datetime as dt
+        return render.compact_delta(dt.timedelta(**kwargs))
+
+    def test_hours_are_zero_padded_to_two_minute_digits(self):
+        self.assertEqual(self.delta(hours=2, minutes=8), "2h08")
+
+    def test_exact_hour_shows_double_zero_minutes(self):
+        self.assertEqual(self.delta(hours=3), "3h00")
+
+    def test_seconds_do_not_round_the_minute_up(self):
+        # 3h00m59s must read 3h00, not 3h01 -- the window has not moved on yet.
+        self.assertEqual(self.delta(hours=3, seconds=59), "3h00")
+
+    def test_under_an_hour_shows_minutes_only(self):
+        self.assertEqual(self.delta(minutes=47), "47m")
+
+    def test_one_minute_boundary(self):
+        self.assertEqual(self.delta(minutes=1), "1m")
+
+    def test_under_a_minute_is_not_shown_as_zero(self):
+        self.assertEqual(self.delta(seconds=42), "<1m")
+
+    def test_elapsed_window_reads_now(self):
+        self.assertEqual(self.delta(seconds=0), "now")
+        self.assertEqual(self.delta(seconds=-90), "now")
+
+    def test_multi_day_stays_compact(self):
+        # Not used by the session window, but must not print "134h50".
+        self.assertEqual(self.delta(days=5, hours=14), "5d14h")
+
+    def test_no_seconds_shown_above_a_minute(self):
+        # 30s refresh would make a seconds digit jump in 30s steps.
+        for text in (self.delta(minutes=5, seconds=30), self.delta(hours=1)):
+            self.assertNotIn("s", text)
+
+
+class TitleCountdownTest(unittest.TestCase):
+    def setUp(self):
+        self.addCleanup(support.pin_timezone())
+        self.cfg = config.load_config(env={})
+
+    def title(self, payload):
+        snapshot = model.normalize(payload, self.cfg, support.NOW)
+        return render.render(snapshot, "Max 5x (team)", render.STATE_OK,
+                             support.NOW, self.cfg).splitlines()[0]
+
+    def test_countdown_recomputed_from_now_not_from_fetch_time(self):
+        payload = support.load_fixture()
+        snapshot = model.normalize(payload, self.cfg, support.NOW)
+        import datetime as dt
+        later = support.NOW + dt.timedelta(minutes=90)
+        first = render.render(snapshot, "p", render.STATE_OK, support.NOW,
+                              self.cfg).splitlines()[0]
+        second = render.render(snapshot, "p", render.STATE_OK, later,
+                               self.cfg).splitlines()[0]
+        self.assertIn("3h00", first)
+        self.assertIn("1h30", second)
+
+    def test_countdown_omitted_when_session_row_absent(self):
+        payload = support.load_fixture()
+        payload["limits"] = [row for row in payload["limits"]
+                             if row["kind"] != "session"]
+        title = self.title(payload)
+        self.assertNotIn("h0", title)
+        self.assertTrue(title.startswith("◱ 25%"), title)
+
+    def test_countdown_omitted_when_reset_time_is_null(self):
+        payload = support.load_fixture()
+        payload["limits"][0]["resets_at"] = None
+        self.assertEqual(self.title(payload), "◱ 61% · ⚠️")
+
+    def test_weekly_percent_is_not_in_the_title(self):
+        self.assertNotIn("25%", self.title(support.load_fixture()))
 
 
 if __name__ == "__main__":

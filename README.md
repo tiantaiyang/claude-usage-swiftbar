@@ -4,7 +4,7 @@ A SwiftBar menu-bar plugin showing Claude quota: the 5-hour session window,
 weekly limits, and extra-usage credits.
 
 ```
-◱ 69% · 25% · ⚠️
+◱ 69% · 2h08 · ⚠️
 ---
 Claude usage — Max 5x (team)
 Session (5h)    69%  ▓▓▓▓▓▓░░░░  resets 14:10 (in 2h 41m)
@@ -13,8 +13,10 @@ Weekly (Fable)   0%  ░░░░░░░░░░
 Extra usage    100%  ▓▓▓▓▓▓▓▓▓▓  $50.25 / $50.00 ⚠️
 ```
 
-The numbers are the same ones `/usage` reports inside Claude Code — they come
-from the account's own usage endpoint, not from estimating token counts.
+The menu bar carries the session percentage, a countdown to the 5-hour window
+reset, and a warning glyph when extra-usage credits are over their cap. The
+numbers are the same ones `/usage` reports inside Claude Code — they come from
+the account's own usage endpoint, not from estimating token counts.
 
 ## How it works
 
@@ -100,16 +102,19 @@ will show "Not signed in to Claude Code".
 PLUGIN_DIR="$HOME/Library/Application Support/SwiftBar/Plugins"
 mkdir -p "$PLUGIN_DIR"
 defaults write com.ameba.SwiftBar PluginDirectory -string "$PLUGIN_DIR"
-ln -sf "$PWD/plugins/claude-usage.2m.py" "$PLUGIN_DIR/claude-usage.2m.py"
-chmod +x plugins/claude-usage.2m.py
+ln -sf "$PWD/plugins/claude-usage.30s.py" "$PLUGIN_DIR/claude-usage.30s.py"
+chmod +x plugins/claude-usage.30s.py
 open -a SwiftBar
 ```
 
 The symlink means edits in this repo take effect on the next refresh. If a
 SwiftBar version ever ignores symlinked plugins, copy the file instead.
 
-The refresh interval is encoded in the filename: `claude-usage.2m.py` is every
-two minutes. Rename to `.1m.py` or `.5m.py` to change it.
+The interval in the filename is how often the plugin **redraws**, not how often
+it calls the API. It runs every 30 seconds so the countdown moves, but only
+fetches when the cached snapshot is older than `CLAUDE_USAGE_FETCH_TTL`
+(120s) — so redrawing four times as often costs no extra requests. Raise the
+TTL to fetch less; rename the file to redraw less.
 
 To start SwiftBar at login, enable it in SwiftBar's own preferences.
 
@@ -129,6 +134,7 @@ Every tunable is an environment variable; defaults live in
 | `CLAUDE_USAGE_GLYPH` | `◱` |
 | `CLAUDE_USAGE_STALE_AFTER` | `900` seconds |
 | `CLAUDE_USAGE_BACKOFF` | `300` seconds (used when a 429 omits `Retry-After`) |
+| `CLAUDE_USAGE_FETCH_TTL` | `120` seconds — how old the cache must be before a real request |
 | `CLAUDE_USAGE_CACHE_PATH` | `~/Library/Caches/claude-usage-swiftbar/snapshot.json` |
 | `CLAUDE_USAGE_PAGE_URL` | `https://claude.ai/settings/usage` |
 
@@ -143,7 +149,7 @@ Every tunable is an environment variable; defaults live in
 | `claude_usage/render.py` | rows → SwiftBar output (pure) |
 | `claude_usage/cache.py` | atomic, owner-only snapshot |
 | `claude_usage/cli.py` | orchestration and degraded-state mapping |
-| `plugins/claude-usage.2m.py` | SwiftBar entry point |
+| `plugins/claude-usage.30s.py` | SwiftBar entry point |
 
 Production code is standard library only: SwiftBar runs the plugin under
 `/usr/bin/python3` with no access to nvm, Homebrew Python, or a virtualenv.
@@ -173,8 +179,8 @@ plugin itself never sees it.
 
 ```sh
 # Not signed in
-CLAUDE_USAGE_KEYCHAIN_SERVICE=nope /usr/bin/python3 plugins/claude-usage.2m.py
+CLAUDE_USAGE_KEYCHAIN_SERVICE=nope /usr/bin/python3 plugins/claude-usage.30s.py
 
 # Offline: falls back to the cached snapshot, marked ⌛
-CLAUDE_USAGE_API_URL=http://127.0.0.1:1/ /usr/bin/python3 plugins/claude-usage.2m.py
+CLAUDE_USAGE_API_URL=http://127.0.0.1:1/ /usr/bin/python3 plugins/claude-usage.30s.py
 ```

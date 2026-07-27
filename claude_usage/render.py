@@ -18,7 +18,7 @@ WARN_MARK = "⚠️"
 UNKNOWN_MARK = "?"
 ABSENT_MARK = "—"
 
-TITLE_KINDS = ("session", "weekly_all")
+SESSION_KIND = "session"
 SPEND_LABEL = "Extra usage"
 ROW_PARAMS = "font=Menlo size=12"
 
@@ -51,6 +51,28 @@ def bar(percent: float, width: int) -> str:
     else:
         filled = max(1, min(width, int(value / 100 * width)))
     return FILLED * filled + EMPTY * (width - filled)
+
+
+def compact_delta(delta: dt.timedelta) -> str:
+    """Countdown short enough for the menu bar: 2h08, 47m, <1m, now.
+
+    Deliberately no seconds above a minute -- the plugin redraws every 30s, so
+    a seconds digit would visibly jump in 30-second steps.
+    """
+    total = delta.total_seconds()
+    if total <= 0:
+        return "now"
+    days = int(total // 86400)
+    remainder = total - days * 86400
+    hours = int(remainder // 3600)
+    minutes = int((remainder % 3600) // 60)
+    if days:
+        return "{}d{:02d}h".format(days, hours)
+    if hours:
+        return "{}h{:02d}".format(hours, minutes)
+    if minutes:
+        return "{}m".format(minutes)
+    return "<1m"
 
 
 def _percent_text(percent: float) -> str:
@@ -107,15 +129,31 @@ def _gauge_row(label: str, percent: float, trailing: str, severity: str,
     return _item(body, ROW_PARAMS, _color_param(severity))
 
 
-def _title(snapshot: Optional[Snapshot], state: ViewState,
+def _countdown_text(snapshot: Snapshot, now: dt.datetime) -> str:
+    """Time left on the 5-hour session window, or '' when unknown."""
+    resets_at = snapshot.reset_for_kind(SESSION_KIND)
+    if resets_at is None:
+        return ""
+    return compact_delta(resets_at - now)
+
+
+def _title(snapshot: Optional[Snapshot], state: ViewState, now: dt.datetime,
            cfg: Config) -> str:
     if state.kind == "not_signed_in":
         return "{} {}".format(cfg.glyph, ABSENT_MARK)
-    percents = [] if snapshot is None else [
-        snapshot.percent_for_kind(kind) for kind in TITLE_KINDS]
-    parts = [_percent_text(value) for value in percents if value is not None]
-    if not parts:
+    if snapshot is None or not snapshot.limits:
         return "{} {}".format(cfg.glyph, UNKNOWN_MARK)
+    parts = []
+    session = snapshot.percent_for_kind(SESSION_KIND)
+    if session is not None:
+        parts.append(_percent_text(session))
+    else:
+        # No session row: fall back to whatever the first limit is, so the
+        # title still carries a number instead of a bare glyph.
+        parts.append(_percent_text(snapshot.limits[0].percent))
+    countdown = _countdown_text(snapshot, now)
+    if countdown:
+        parts.append(countdown)
     if snapshot.spend is not None and _is_elevated(snapshot.spend.severity):
         parts.append(WARN_MARK)
     text = "{} {}".format(cfg.glyph, " · ".join(parts))
@@ -193,7 +231,7 @@ def render(snapshot: Optional[Snapshot], plan_label: str, state: ViewState,
         snapshot = None
     width = _label_width(snapshot)
     return _join([
-        [_title(snapshot, state, cfg)],
+        [_title(snapshot, state, now, cfg)],
         _header_block(plan_label, state, now),
         _limit_block(snapshot, now, width, cfg),
         _spend_block(snapshot, width, cfg),

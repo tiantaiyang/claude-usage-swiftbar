@@ -13,7 +13,7 @@
 set -eu
 
 REPO_URL="https://github.com/tiantaiyang/claude-usage-swiftbar.git"
-PLUGIN_NAME="claude-usage.2m.py"
+PLUGIN_NAME="claude-usage.30s.py"
 BUNDLE_ID="com.ameba.SwiftBar"
 KEYCHAIN_SERVICE="Claude Code-credentials"
 DEFAULT_APPDIR="$HOME/Applications"
@@ -170,6 +170,18 @@ else
     note "(setting this up front skips SwiftBar's first-run folder dialog)"
 fi
 mkdir -p "$PLUGIN_DIR"
+
+# An earlier release used a different refresh interval in the filename. Leaving
+# it behind would make SwiftBar run both and show two menu bar items.
+for _stale in "$PLUGIN_DIR"/claude-usage.*.py; do
+    # -e follows symlinks, so it is false for the dangling link a rename leaves
+    # behind -- exactly the case this loop exists to clean up. -L catches it.
+    [ -e "$_stale" ] || [ -L "$_stale" ] || continue
+    if [ "$(basename "$_stale")" != "$PLUGIN_NAME" ]; then
+        rm -f "$_stale"
+        note "removed superseded plugin $(basename "$_stale")"
+    fi
+done
 
 chmod +x "$PLUGIN_SRC"
 ln -sfn "$PLUGIN_SRC" "$PLUGIN_DIR/$PLUGIN_NAME"

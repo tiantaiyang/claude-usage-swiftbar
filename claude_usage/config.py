@@ -19,6 +19,9 @@ DEFAULT_BAR_WIDTH = 10
 DEFAULT_GLYPH = "◱"
 DEFAULT_STALE_AFTER = 900
 DEFAULT_BACKOFF = 300
+# Rendering runs far more often than this so the countdown moves;
+# only a cache older than the TTL triggers a real request.
+DEFAULT_FETCH_TTL = 120
 DEFAULT_CACHE_PATH = "~/Library/Caches/claude-usage-swiftbar/snapshot.json"
 
 # Light-mode, dark-mode pairs; SwiftBar picks by system appearance.
@@ -37,6 +40,7 @@ class Config(NamedTuple):
     glyph: str
     stale_after: int
     backoff_seconds: int
+    fetch_ttl: int
     cache_path: str
     keychain_service: str
     usage_page_url: str
@@ -78,6 +82,7 @@ def load_config(env: Optional[Mapping[str, str]] = None) -> Config:
         glyph=_get(env, "GLYPH") or DEFAULT_GLYPH,
         stale_after=_as_int(_get(env, "STALE_AFTER"), DEFAULT_STALE_AFTER),
         backoff_seconds=_as_int(_get(env, "BACKOFF"), DEFAULT_BACKOFF),
+        fetch_ttl=_as_int(_get(env, "FETCH_TTL"), DEFAULT_FETCH_TTL),
         cache_path=os.path.abspath(os.path.expanduser(cache_path)),
         keychain_service=(_get(env, "KEYCHAIN_SERVICE")
                           or DEFAULT_KEYCHAIN_SERVICE),

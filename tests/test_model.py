@@ -105,6 +105,17 @@ class NormalizeTest(unittest.TestCase):
         with self.assertRaises(AttributeError):
             row.percent = 5
 
+    def test_reset_for_kind_returns_the_matching_reset_time(self):
+        snapshot = self.normalize()
+        self.assertEqual(snapshot.reset_for_kind("session"),
+                         snapshot.limits[0].resets_at)
+
+    def test_reset_for_kind_is_none_for_unknown_kind(self):
+        self.assertIsNone(self.normalize().reset_for_kind("nope"))
+
+    def test_reset_for_kind_is_none_when_row_has_no_reset(self):
+        self.assertIsNone(self.normalize().reset_for_kind("weekly_scoped"))
+
     def test_limits_is_a_tuple(self):
         self.assertIsInstance(self.normalize().limits, tuple)
 

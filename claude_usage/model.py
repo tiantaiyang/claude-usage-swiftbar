@@ -65,6 +65,12 @@ class Snapshot(NamedTuple):
                 return row.percent
         return None
 
+    def reset_for_kind(self, kind: str) -> Optional[dt.datetime]:
+        for row in self.limits:
+            if row.kind == kind:
+                return row.resets_at
+        return None
+
     def worst_severity(self) -> str:
         worst = SEVERITY_NORMAL
         for row in self.limits:
