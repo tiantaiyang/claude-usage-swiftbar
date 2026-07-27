@@ -7,8 +7,11 @@
 # reuses SwiftBar's existing plugin directory rather than repointing it, so
 # other plugins are left alone.
 #
-# Non-interactive use (skips all prompts):
-#   NONINTERACTIVE=1 SWIFTBAR_APPDIR=~/Applications INSTALL_DIR=~/src/x ./install.sh
+# When SwiftBar is already installed there is nothing to ask, so it runs
+# straight through. The only prompt is which folder to put SwiftBar.app in, and
+# only when it actually has to install it. Override without prompting via:
+#   SWIFTBAR_APPDIR=~/Applications INSTALL_DIR=~/src/x ./install.sh
+# NONINTERACTIVE=1 additionally forces defaults with no terminal interaction.
 
 set -eu
 
@@ -54,13 +57,44 @@ find_brew() {
     return 1
 }
 
+# Four escalating lookups. An existing install must never be missed: the
+# consequence is offering to install SwiftBar a second time and asking for a
+# folder the user has already chosen once.
 find_swiftbar() {
-    for _dir in "/Applications" "$HOME/Applications" "${SWIFTBAR_APPDIR:-}"; do
+    for _dir in "${SWIFTBAR_APPDIR:-}" "/Applications" "$HOME/Applications"; do
         [ -n "$_dir" ] || continue
-        [ -d "$_dir/SwiftBar.app" ] && printf '%s\n' "$_dir/SwiftBar.app" && return 0
+        if [ -d "$_dir/SwiftBar.app" ]; then
+            printf '%s\n' "$_dir/SwiftBar.app"
+            return 0
+        fi
     done
-    _found=$(mdfind -name "SwiftBar.app" 2>/dev/null | grep '/SwiftBar\.app$' | head -1) || _found=""
-    [ -n "$_found" ] && [ -d "$_found" ] && printf '%s\n' "$_found" && return 0
+
+    # A running instance is the strongest signal on a Mac already using it.
+    _hit=$(ps -Ao comm= 2>/dev/null \
+        | grep -m1 '/SwiftBar\.app/Contents/MacOS/SwiftBar$') || _hit=""
+    if [ -n "$_hit" ]; then
+        _hit=${_hit%/Contents/MacOS/SwiftBar}
+        [ -d "$_hit" ] && printf '%s\n' "$_hit" && return 0
+    fi
+
+    # LaunchServices knows about apps anywhere on disk, running or not.
+    _hit=$(osascript -e 'POSIX path of (path to application "SwiftBar")' \
+        2>/dev/null | head -1) || _hit=""
+    _hit=${_hit%/}
+    if [ -n "$_hit" ] && [ -d "$_hit" ]; then
+        printf '%s\n' "$_hit"
+        return 0
+    fi
+
+    # Spotlight, by bundle id. Querying the filename instead -- mdfind -name
+    # "SwiftBar.app" -- returns nothing even when the app is installed and
+    # indexed, which is what let an existing install slip through before.
+    _hit=$(mdfind "kMDItemCFBundleIdentifier == 'com.ameba.SwiftBar'" \
+        2>/dev/null | head -1) || _hit=""
+    if [ -n "$_hit" ] && [ -d "$_hit" ]; then
+        printf '%s\n' "$_hit"
+        return 0
+    fi
     return 1
 }
 
@@ -123,7 +157,9 @@ if [ -n "$SRC" ]; then
     note "using this checkout: $SRC"
 else
     command -v git >/dev/null 2>&1 || fail "git is required to download the plugin"
-    SRC=$(ask "Where should the plugin repo live?" "${INSTALL_DIR:-$DEFAULT_INSTALL_DIR}")
+    # Not a prompt: nobody installing a menu-bar plugin wants to be asked where
+    # its source should sit. Override with INSTALL_DIR when you do care.
+    SRC="${INSTALL_DIR:-$DEFAULT_INSTALL_DIR}"
     if [ -d "$SRC/.git" ]; then
         note "updating existing checkout at $SRC"
         git -C "$SRC" pull --ff-only >/dev/null 2>&1 \
@@ -214,7 +250,7 @@ fi
 
 cat <<'DONE'
 
-    Done. Look for the ◱ item in your menu bar.
+    Done. Look for the gauge icon in your menu bar.
 
     Two things to know:
       * If macOS asks for keychain access, choose "Always Allow" — otherwise

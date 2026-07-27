@@ -57,20 +57,31 @@ It will:
 2. install SwiftBar via Homebrew if it is missing — asking which folder to put
    `SwiftBar.app` in, and passing `--appdir` so writing to `/Applications`
    never prompts for an admin password;
-3. clone this repo to a folder you choose;
+3. clone this repo to `~/Developer/claude-usage-swiftbar` (override with
+   `INSTALL_DIR`; it is not worth a prompt);
 4. check that Claude Code is signed in;
 5. reuse SwiftBar's existing plugin folder if one is configured (other plugins
    are left alone), otherwise set one — which also skips SwiftBar's first-run
    folder dialog;
 6. link the plugin, smoke test it, and start SwiftBar.
 
-Re-running it is safe. Prompts read from `/dev/tty`, so they work under
-`curl | sh` too. To skip every prompt:
+Re-running it is safe. **When SwiftBar is already installed there is nothing to
+ask, so it runs straight through with no prompts.** The only question is which
+folder to put `SwiftBar.app` in, and only when it actually has to install it —
+answering it feeds `brew install --cask swiftbar --appdir=...`, which is what
+keeps `/Applications` from demanding an admin password.
+
+The prompt reads from `/dev/tty`, so it works under `curl | sh` too. To answer
+everything up front:
 
 ```sh
-NONINTERACTIVE=1 SWIFTBAR_APPDIR=~/Applications INSTALL_DIR=~/Developer/claude-usage-swiftbar \
+SWIFTBAR_APPDIR=~/Applications INSTALL_DIR=~/Developer/claude-usage-swiftbar \
   /bin/sh -c "$(curl -fsSL https://raw.githubusercontent.com/tiantaiyang/claude-usage-swiftbar/main/install.sh)"
 ```
+
+SwiftBar is located by checking the usual folders, then a running instance,
+then LaunchServices, then Spotlight by bundle id — so a copy installed
+somewhere unusual is still found rather than installed a second time.
 
 From an existing checkout, `./install.sh` does the same thing without cloning.
 
