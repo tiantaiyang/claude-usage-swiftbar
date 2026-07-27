@@ -130,7 +130,7 @@ class RenderSeverityTest(unittest.TestCase):
     def test_warns_when_the_session_limit_is_elevated(self):
         self.assertEqual(self.title_for(85, "warning"), "◱ 85% · 3h00 · ⚠️")
 
-    def test_warns_when_a_weekly_limit_is_elevated_even_if_session_is_low(self):
+    def test_warns_on_weekly_even_when_session_is_low(self):
         payload = support.load_fixture()
         payload["limits"][1]["percent"] = 88
         payload["limits"][1]["severity"] = "warning"
