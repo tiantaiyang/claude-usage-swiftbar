@@ -24,8 +24,9 @@ DEFAULT_BACKOFF = 300
 DEFAULT_FETCH_TTL = 120
 DEFAULT_CACHE_PATH = "~/Library/Caches/claude-usage-swiftbar/snapshot.json"
 
-# Light-mode, dark-mode pairs; SwiftBar picks by system appearance.
-WARN_COLOR = "#B36B00,#FFB020"
+# Light-mode, dark-mode pairs; SwiftBar picks by system appearance. Usage
+# numbers are deliberately left uncoloured so they stay legible in the menu
+# bar; these only tint error messages and de-emphasised metadata.
 CRIT_COLOR = "#C0392B,#FF6B6B"
 MUTED_COLOR = "#888888"
 

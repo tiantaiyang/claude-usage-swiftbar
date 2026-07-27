@@ -2,6 +2,7 @@ import unittest
 
 import support
 from claude_usage import config, model, render
+from claude_usage.config import CRIT_COLOR, MUTED_COLOR
 
 
 def sections(text):
@@ -60,8 +61,13 @@ class RenderOkTest(unittest.TestCase):
         self.assertIn("Refresh now | refresh=true", self.text)
         self.assertIn("href=" + self.cfg.usage_page_url, self.text)
 
-    def test_no_colour_on_title_when_all_limits_normal(self):
+    def test_title_is_never_coloured(self):
         self.assertNotIn("color=", self.lines[0])
+
+    def test_limit_rows_are_never_coloured(self):
+        for line in self.lines:
+            if "font=Menlo" in line:
+                self.assertNotIn("color=", line, line)
 
 
 class RenderSeverityTest(unittest.TestCase):
@@ -78,16 +84,43 @@ class RenderSeverityTest(unittest.TestCase):
                              support.NOW, self.cfg)
         return text.splitlines()[0]
 
-    def test_warning_limit_colours_the_title(self):
-        title = self.title_for(85, "warning")
-        self.assertIn("color=", title)
-        self.assertTrue(title.startswith("◱ 85% · 3h00 · ⚠️"))
+    def test_title_stays_uncoloured_at_every_severity(self):
+        # A tinted title is hard to read against the menu bar; the percentage
+        # and the warning glyph already carry the signal.
+        for percent, severity in ((10, "normal"), (85, "warning"),
+                                  (99, "critical")):
+            title = self.title_for(percent, severity)
+            self.assertNotIn("color=", title, severity)
 
-    def test_critical_limit_colours_the_title_differently(self):
-        warning = self.title_for(85, "warning")
-        critical = self.title_for(97, "critical")
-        self.assertNotEqual(warning.split("color=")[1],
-                            critical.split("color=")[1])
+    def test_title_still_reports_the_number_at_warning(self):
+        self.assertEqual(self.title_for(85, "warning"), "◱ 85% · 3h00 · ⚠️")
+
+    def test_rows_stay_uncoloured_at_every_severity(self):
+        for severity in ("normal", "warning", "critical"):
+            payload = support.load_fixture()
+            payload["limits"][0]["severity"] = severity
+            payload["limits"][0]["percent"] = 97
+            payload["spend"]["severity"] = severity
+            snapshot = model.normalize(payload, self.cfg, support.NOW)
+            text = render.render(snapshot, "Max 5x (team)", render.STATE_OK,
+                                 support.NOW, self.cfg)
+            for line in text.splitlines():
+                if "font=Menlo" in line:
+                    self.assertNotIn("color=", line, severity)
+
+    def test_secondary_lines_keep_their_muted_colour(self):
+        # Only usage-driven colouring is dropped; de-emphasised metadata and
+        # error messages keep theirs.
+        text = render.render(
+            model.normalize(support.load_fixture(), self.cfg, support.NOW),
+            "Max 5x (team)", render.STATE_OK, support.NOW, self.cfg)
+        self.assertIn("color=" + MUTED_COLOR, text)
+
+    def test_degraded_detail_keeps_its_alert_colour(self):
+        text = render.render(None, "Claude",
+                             render.ViewState("not_signed_in", "nope"),
+                             support.NOW, self.cfg)
+        self.assertIn("color=" + CRIT_COLOR, text)
 
     def test_no_warning_glyph_when_spend_is_normal(self):
         payload = support.load_fixture()

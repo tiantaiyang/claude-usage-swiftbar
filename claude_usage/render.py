@@ -7,9 +7,8 @@ cycles between them, so exactly one title line is emitted.
 import datetime as dt
 from typing import List, NamedTuple, Optional, Sequence
 
-from .config import CRIT_COLOR, MUTED_COLOR, WARN_COLOR, Config
-from .model import (SEVERITY_CRITICAL, SEVERITY_NORMAL, SEVERITY_ORDER,
-                    SEVERITY_WARNING, Snapshot)
+from .config import CRIT_COLOR, MUTED_COLOR, Config
+from .model import SEVERITY_NORMAL, SEVERITY_ORDER, Snapshot
 
 FILLED = "▓"
 EMPTY = "░"
@@ -25,9 +24,6 @@ ROW_PARAMS = "font=Menlo size=12"
 SIGN_IN_HINT = "Run: claude /login"
 TOKEN_HINT = ("Claude Code refreshes it on next use; "
               "this plugin never refreshes tokens")
-
-SEVERITY_COLORS = {SEVERITY_WARNING: WARN_COLOR, SEVERITY_CRITICAL: CRIT_COLOR}
-
 
 class ViewState(NamedTuple):
     kind: str
@@ -84,11 +80,6 @@ def _item(text: str, *params: str) -> str:
     return "{} | {}".format(text, " ".join(extras)) if extras else text
 
 
-def _color_param(severity: str) -> str:
-    color = SEVERITY_COLORS.get(severity)
-    return "color={}".format(color) if color else ""
-
-
 def _humanise_delta(delta: dt.timedelta) -> str:
     total = delta.total_seconds()
     if total <= 0:
@@ -121,12 +112,12 @@ def _label_width(snapshot: Optional[Snapshot]) -> int:
     return max(len(label) for label in labels)
 
 
-def _gauge_row(label: str, percent: float, trailing: str, severity: str,
+def _gauge_row(label: str, percent: float, trailing: str,
                width: int, cfg: Config) -> str:
     body = "{:<{}} {:>4}  {}  {}".format(
         label, width, _percent_text(percent), bar(percent, cfg.bar_width),
         trailing).rstrip()
-    return _item(body, ROW_PARAMS, _color_param(severity))
+    return _item(body, ROW_PARAMS)
 
 
 def _countdown_text(snapshot: Snapshot, now: dt.datetime) -> str:
@@ -159,7 +150,7 @@ def _title(snapshot: Optional[Snapshot], state: ViewState, now: dt.datetime,
     text = "{} {}".format(cfg.glyph, " · ".join(parts))
     if state.kind != "ok":
         text += " " + STALE_MARK
-    return _item(text, _color_param(snapshot.worst_severity()))
+    return text
 
 
 def _is_elevated(severity: str) -> bool:
@@ -189,8 +180,7 @@ def _limit_block(snapshot: Optional[Snapshot], now: dt.datetime,
     if snapshot is None:
         return []
     return [_gauge_row(row.label, row.percent,
-                       _reset_text(row.resets_at, now), row.severity,
-                       width, cfg)
+                       _reset_text(row.resets_at, now), width, cfg)
             for row in snapshot.limits]
 
 
@@ -202,8 +192,7 @@ def _spend_block(snapshot: Optional[Snapshot], width: int,
     trailing = "{} / {}".format(spend.used_text, spend.limit_text)
     if _is_elevated(spend.severity):
         trailing += " " + WARN_MARK
-    lines = [_gauge_row(SPEND_LABEL, spend.percent, trailing, spend.severity,
-                        width, cfg)]
+    lines = [_gauge_row(SPEND_LABEL, spend.percent, trailing, width, cfg)]
     if spend.note:
         lines.append(_item(spend.note, "size=11", "color=" + MUTED_COLOR))
     return lines
