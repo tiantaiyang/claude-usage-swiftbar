@@ -35,7 +35,8 @@ class CacheTest(unittest.TestCase):
         self.assertEqual(mode, 0o600)
 
     def test_missing_file_returns_none(self):
-        self.assertIsNone(cache.load(os.path.join(self.tmp.name, "absent.json")))
+        absent = os.path.join(self.tmp.name, "absent.json")
+        self.assertIsNone(cache.load(absent))
 
     def test_corrupt_file_is_treated_as_empty(self):
         os.makedirs(os.path.dirname(self.path), exist_ok=True)
@@ -68,8 +69,8 @@ class CacheTest(unittest.TestCase):
                          "2026-07-27T03:39:00+00:00")
 
     def test_refuses_to_persist_credential_like_keys(self):
-        poisoned = dict(self.record,
-                        payload={"claudeAiOauth": {"accessToken": support.FAKE_TOKEN}})
+        secret = {"claudeAiOauth": {"accessToken": support.FAKE_TOKEN}}
+        poisoned = dict(self.record, payload=secret)
         with self.assertRaises(ValueError):
             cache.save(self.path, poisoned)
 
@@ -86,8 +87,8 @@ class CacheTest(unittest.TestCase):
         self.assertNotIn("sk-ant", written)
         self.assertNotIn(support.FAKE_TOKEN, written)
         # Sanity: the usage numbers really are there.
-        self.assertEqual(json.loads(written)["payload"]["five_hour"]["utilization"],
-                         61.0)
+        payload = json.loads(written)["payload"]
+        self.assertEqual(payload["five_hour"]["utilization"], 61.0)
 
 
 if __name__ == "__main__":

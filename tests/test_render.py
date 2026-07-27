@@ -33,9 +33,9 @@ class RenderOkTest(unittest.TestCase):
         self.assertIn(
             "Session (5h)    61%  ▓▓▓▓▓▓░░░░  resets 14:09 (in 3h 0m)",
             self.text)
-        self.assertIn(
-            "Weekly (all)    25%  ▓▓░░░░░░░░  resets Sun 08-02 01:59 (in 5d 14h)",
-            self.text)
+        weekly = ("Weekly (all)    25%  ▓▓░░░░░░░░  "
+                  "resets Sun 08-02 01:59 (in 5d 14h)")
+        self.assertIn(weekly, self.text)
 
     def test_row_without_reset_time_has_no_trailing_whitespace(self):
         row = next(line for line in self.lines if "Weekly (Fable)" in line)

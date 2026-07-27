@@ -126,9 +126,9 @@ def run(cfg: Config, now: dt.datetime, deps: Deps = DEFAULT_DEPS) -> str:
     try:
         credentials = deps.read_credentials(cfg)
     except keychain.NotSignedIn as error:
-        return render.render(None, "Claude", render.ViewState(
-            "not_signed_in", "Not signed in to Claude Code — {}".format(error)),
-            now, cfg)
+        detail = "Not signed in to Claude Code — {}".format(error)
+        state = render.ViewState("not_signed_in", detail)
+        return render.render(None, "Claude", state, now, cfg)
     except Exception as error:  # noqa: BLE001 -- must not break the menu bar
         return render.render(None, "Claude", render.ViewState(
             "error", "Keychain error: {}".format(error.__class__.__name__)),

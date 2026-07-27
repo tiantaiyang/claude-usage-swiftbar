@@ -1,4 +1,4 @@
-"""Shared test helpers: deterministic timezone, fixture loading, repo importability."""
+"""Shared test helpers: pinned timezone, fixtures, sys.path setup."""
 
 import copy
 import datetime as dt

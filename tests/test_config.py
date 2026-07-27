@@ -61,7 +61,8 @@ class OverrideTest(unittest.TestCase):
         self.assertEqual(cfg.stale_after, 60)
         self.assertEqual(cfg.cache_path, "/tmp/x/snap.json")
         self.assertEqual(cfg.keychain_service, "Other-credentials")
-        self.assertEqual(cfg.usage_page_url, "https://example.invalid/settings")
+        self.assertEqual(cfg.usage_page_url,
+                         "https://example.invalid/settings")
 
     def test_invalid_numbers_fall_back_to_defaults(self):
         cfg = config.load_config(env={"CLAUDE_USAGE_WARN_PCT": "abc",
@@ -70,7 +71,8 @@ class OverrideTest(unittest.TestCase):
         self.assertEqual(cfg.timeout, 8.0)
 
     def test_tilde_in_cache_path_is_expanded(self):
-        cfg = config.load_config(env={"CLAUDE_USAGE_CACHE_PATH": "~/snap.json"})
+        env = {"CLAUDE_USAGE_CACHE_PATH": "~/snap.json"}
+        cfg = config.load_config(env=env)
         self.assertTrue(cfg.cache_path.startswith(os.path.expanduser("~")))
 
     def test_defaults_read_the_process_environment_when_none_given(self):

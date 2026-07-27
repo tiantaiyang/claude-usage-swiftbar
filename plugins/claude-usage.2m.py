@@ -2,7 +2,7 @@
 # <bitbar.title>Claude Usage</bitbar.title>
 # <bitbar.version>v1.0.0</bitbar.version>
 # <bitbar.author>tiantaiyang</bitbar.author>
-# <bitbar.desc>Shows Claude session, weekly and extra-usage quota in the menu bar.</bitbar.desc>
+# <bitbar.desc>Claude quota in the menu bar.</bitbar.desc>
 # <bitbar.dependencies>python3</bitbar.dependencies>
 # <swiftbar.hideAbout>true</swiftbar.hideAbout>
 # <swiftbar.hideRunInTerminal>true</swiftbar.hideRunInTerminal>

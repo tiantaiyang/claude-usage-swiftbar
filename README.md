@@ -67,6 +67,15 @@ NONINTERACTIVE=1 SWIFTBAR_APPDIR=~/Applications INSTALL_DIR=~/Developer/claude-u
 
 From an existing checkout, `./install.sh` does the same thing without cloning.
 
+Pick a stable folder for the repo. SwiftBar is pointed at a symlink into it, so
+a location you periodically clear out — `/tmp`, `~/Downloads` — will leave a
+dangling link and the menu-bar item will silently disappear.
+
+If the API rate-limits you (HTTP 429), the plugin stops polling until the
+`Retry-After` window passes and shows `Rate limited until HH:MM` over the last
+known numbers, so several machines polling the same account back off on their
+own rather than making it worse.
+
 ### What each Mac needs
 
 | Requirement | Handled by the installer? |

@@ -40,7 +40,8 @@ class FetchSuccessTest(unittest.TestCase):
         self.opener = Recorder(json.dumps(self.payload).encode("utf-8"))
 
     def fetch(self):
-        return api.fetch_usage(support.FAKE_TOKEN, self.cfg, opener=self.opener)
+        return api.fetch_usage(support.FAKE_TOKEN, self.cfg,
+                               opener=self.opener)
 
     def test_returns_parsed_payload(self):
         self.assertEqual(self.fetch(), self.payload)
@@ -101,8 +102,9 @@ class FetchFailureTest(unittest.TestCase):
         self.assertIsNone(caught.exception.retry_after)
 
     def test_unparsable_retry_after_is_ignored(self):
+        headers = {"Retry-After": "Wed, 21 Oct 2026 07:28:00 GMT"}
         with self.assertRaises(api.RateLimited) as caught:
-            self.fetch(http_error(429, {"Retry-After": "Wed, 21 Oct 2026 07:28:00 GMT"}))
+            self.fetch(http_error(429, headers))
         self.assertIsNone(caught.exception.retry_after)
 
     def test_server_error_is_transient(self):

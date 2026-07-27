@@ -58,8 +58,8 @@ class ReadCredentialsTest(unittest.TestCase):
             self.read(Runner(stdout=support.fake_credentials_json(token="")))
 
     def test_absent_plan_fields_are_none_not_an_error(self):
-        creds = self.read(Runner(
-            stdout=support.fake_credentials_json(subscription=None, tier=None)))
+        stdout = support.fake_credentials_json(subscription=None, tier=None)
+        creds = self.read(Runner(stdout=stdout))
         self.assertIsNone(creds.subscription_type)
         self.assertIsNone(creds.rate_limit_tier)
         self.assertEqual(creds.access_token, support.FAKE_TOKEN)

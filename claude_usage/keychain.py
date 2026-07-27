@@ -35,7 +35,8 @@ class Credentials(NamedTuple):
 Runner = Callable[..., Tuple[int, str, str]]
 
 
-def _run(argv: Sequence[str], timeout: Optional[float] = None):
+def _run(argv: Sequence[str],
+         timeout: Optional[float] = None) -> Tuple[int, str, str]:
     completed = subprocess.run(argv, capture_output=True, text=True,
                                timeout=timeout, check=False)
     return completed.returncode, completed.stdout, completed.stderr
